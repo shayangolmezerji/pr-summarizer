@@ -509,14 +509,16 @@ the job summary the runner was always going to upload to GitHub.
 documented way to use the action.
 
 GitHub has never run the action or either workflow. What was executed here is the
-`brief` step's shell body, read out of `action.yml` with a scratch PyYAML script
-(PyYAML is not a dependency of this package) and run in bash with `RUNNER_TEMP`,
-`GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` pointed at scratch files, over the range
-`c7b6def..d68dd2f`: the second row of the table in
+`brief` step's shell body, read out of `action.yml` with `tools/step_body.py` and
+run in bash with `RUNNER_TEMP`, `GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` pointed
+at scratch files, over the range `c7b6def..d68dd2f`: the second row of the table in
 [ADR 0001](docs/adr/0001-ast-before-model.md), 45,919 diff bytes whose brief is
 10,594. Both rows were produced again after the backtick escape went in, with the
-same three counts, and the brief read back out of `$GITHUB_OUTPUT` then held no
-backtick at all:
+same three counts, and that pairing is a no-change regression check rather than
+evidence about the escape: this range's brief holds no backtick at all, counted in
+`$RUNNER_TEMP/pr-brief.txt` and again in the value read back out of
+`$GITHUB_OUTPUT`, so on this input the escape changes nothing. What the escape does
+is measured below, on the input the comment step ran over.
 
 | Case | Step exit | `$GITHUB_STEP_SUMMARY` | `$GITHUB_OUTPUT` | `brief` value read back |
 |---|---|---|---|---|
@@ -542,30 +544,73 @@ variant ran here over the same range, wrote 32,312 bytes through the same
 `$GITHUB_OUTPUT` heredoc, and `json.loads` on the value read back gives
 `files_changed: 10` with the one withheld-delta risk entry intact.
 
-The comment step ran here too. Its `run:` body was read out of the YAML with a
-scratch script, executed in bash over a brief whose path line used to be a bare
-fence, and the only thing stood in was `gh` itself: a script on `PATH` that
-echoes the arguments it was handed, because `gh` is off-limits in this
-environment (see [Limitations](#never-executed-and-what-each-one-would-prove)).
-`BRIEF` is the render of a patch whose file name is three backticks and whose
-header lines carry CR:
+The comment step ran here too. Its `run:` body came out of the workflow with
+`tools/step_body.py` and was executed in bash over a brief whose path line used to
+be a bare fence, and the only thing stood in was `gh` itself: `tools/stub-bin/gh`,
+a script on `PATH` that echoes the arguments it was handed, because `gh` is
+off-limits in this environment (see
+[Limitations](#never-executed-and-what-each-one-would-prove)). It copies whatever
+`--body-file` names to `GH_STUB_COPY`, outside `RUNNER_TEMP`, so the body that was
+handed over can be counted after the step's own `trap` has deleted the original.
+`BRIEF` is the render of `tools/hostile_patch.py`'s patch, whose one file is named
+with three backticks and whose header lines carry CR:
 
 ```
-$ PATH=/tmp/fakebin:$PATH RUNNER_TEMP=/tmp PR_NUMBER=7 GITHUB_REPOSITORY=someone/whatever \
-    GH_TOKEN=runner-provided BRIEF="$(.venv/bin/pr-summarizer /tmp/hostile.patch 2>/dev/null)" \
-    bash /tmp/extracted-comment-step.sh
-gh pr comment 7 --repo someone/whatever --body-file /tmp/pr-comment-body.md
-$ .venv/bin/python /tmp/count-fences.py /tmp/pr-comment-body.md
+$ mkdir -p /tmp/prfence
+$ .venv/bin/python tools/hostile_patch.py /tmp/prfence/hostile.patch
+wrote /tmp/prfence/hostile.patch: 100 bytes
+$ .venv/bin/python tools/step_body.py .github/workflows/pr-summary.yml \
+    "Comment on the pull request" /tmp/prfence/comment-step.sh
+wrote /tmp/prfence/comment-step.sh: 1120 bytes
+$ PATH="$PWD/tools/stub-bin:$PWD/.venv/bin:$PATH" RUNNER_TEMP=/tmp/prfence \
+    PR_NUMBER=7 GITHUB_REPOSITORY=someone/whatever GH_TOKEN=runner-provided \
+    GH_STUB_COPY=/tmp/prfence/body.md \
+    BRIEF="$(.venv/bin/pr-summarizer --no-model /tmp/prfence/hostile.patch 2>/dev/null)" \
+    bash /tmp/prfence/comment-step.sh
+gh pr comment 7 --repo someone/whatever --body-file /tmp/prfence/pr-comment-body.md
+$ ls /tmp/prfence
+body.md
+comment-step.sh
+hostile.patch
+$ .venv/bin/python tools/count_fence_lines.py /tmp/prfence/body.md
 bytes: 273
-lines: 18
-lines that can close the fence: [16]
+CommonMark lines: 17
+lines that can close a fence: [17]
 ```
 
-Line 5 of that body is the hostile path with a backslash in front of its three
-backticks, and line 16 is the closer the step itself writes. Measured on the same
-input before the escape, the count came out `[5, 16]`: everything after line 5
-rendered as markdown instead of as code. The scratch scripts, like the loopback
-stub above, are not in the tree.
+Every line number here is a CommonMark line, the one convention
+`tools/count_fence_lines.py` counts by and prints under that name. A lone carriage
+return ends a line, and that is what gives the hostile path's run a line to
+itself; the same 273 bytes are 16 lines to `wc -l`, and the two are not comparable.
+Line 3 opens the block, line 6 is that run carrying a backslash in front of it,
+line 7 is the `  [modified]` the carriage return left behind, and line 17 is the
+closer the block helper wrote: the body's last line, and the only one that can close
+the fence.
+
+The body holds exactly one backslash, and it is the escape's. Take that byte back
+out and the same command shows what the byte was for:
+
+```
+$ tr -dc '\\' < /tmp/prfence/body.md | wc -c
+1
+$ tr -d '\\' < /tmp/prfence/body.md > /tmp/prfence/no-escape.md
+$ .venv/bin/python tools/count_fence_lines.py /tmp/prfence/no-escape.md
+bytes: 272
+CommonMark lines: 17
+lines that can close a fence: [6, 17]
+```
+
+Read that against the rule, not a render: line 6 is now a bare run of three, so it
+closes the block opened at line 3, lines 7 through 16 render as markdown instead of
+as code, and the closer at line 17 opens a fence nothing closes. One byte is the
+difference. What was measured here and what was not stay separate: `[6, 17]` is a
+count of a body the current code wrote with one character taken back out of it.
+The pre-escape code was never checked out and run.
+
+All four scripts this passage used are in the tree: `tools/hostile_patch.py`,
+`tools/step_body.py`, `tools/count_fence_lines.py` and `tools/stub-bin/gh`. The
+loopback model stub under [Model access](#model-access) is not, so reproducing that
+evidence means writing the stub again.
 
 ## Testing
 
@@ -581,7 +626,7 @@ Run here, on the tree this README describes:
 $ .venv/bin/ruff check .
 All checks passed!
 $ .venv/bin/python -m pytest -q
-96 passed in 0.88s
+103 passed in 0.87s
 ```
 
 The first two also ran in a clean-room venv built by the block above, in a copy of
@@ -596,12 +641,12 @@ Name                             Stmts   Miss  Cover
 ----------------------------------------------------
 src/pr_summarizer/__init__.py        2      0   100%
 src/pr_summarizer/ast_stage.py     304     10    97%
-src/pr_summarizer/brief.py         215      8    96%
+src/pr_summarizer/brief.py         217      8    96%
 src/pr_summarizer/cli.py            54      0   100%
 src/pr_summarizer/diff.py          161      0   100%
 src/pr_summarizer/model.py          83      5    94%
 ----------------------------------------------------
-TOTAL                              819     23    97%
+TOTAL                              821     23    97%
 ```
 
 Six test modules. The corpus is in `tests/fixtures/`, seven `.diff` files that
@@ -655,7 +700,7 @@ environment.
 | `action.yml` | GitHub has never run it. Only the step's shell body ran here, in bash, with the runner variables pointed at scratch files. Its `pip install "$GITHUB_ACTION_PATH"` was reproduced in the same non-editable form against a copy of the tree; `fetch-depth: 0`, the `inputs.*` context expressions and the resolution of `uses: ./` have never been interpreted by anything. |
 | `.github/workflows/ci.yml` | Never run. `actionlint` is not installed here and cannot be. Its three `run:` lines were each executed by hand, in the clean-room venv for the install one, and the YAML parses. |
 | `.github/workflows/pr-summary.yml` | Never run by GitHub. Its comment step's `run:` body did run here, in bash, but the `gh` it reached was a script on `PATH` that echoes its arguments: `gh` is deliberately off-limits in this environment, so no comment was ever sent and `--body-file` was never read by anything that would post it. Nothing about the step's `env:` interpolation or the runner's `RUNNER_TEMP` lifetime has been interpreted by GitHub. |
-| A live model provider | No provider was contacted, so a real one's error bodies, rate limits and any status the tool does not name are exercised against fake transports only. It also means the request framing is unproven where it matters: the suite asserts that the delimited region carries the diff's words and that the instruction region does not, which is a claim about bytes this tool builds, not about how a server reads them. Nobody has shown a framed brief to a model from here. The two returns inside `_urllib_transport` are coverage misses (`model.py` 121 and 123) because the suite replaces that transport; both did run here, against a loopback stub that is deliberately not in the tree, so reproducing that evidence means writing the stub again. The other three misses are ordinary gaps in the test inputs: 169 wants a status outside the four the tool names, and 183 and 186 want a brief that already fits its budget or a budget that is not positive. |
+| A live model provider | No provider was contacted, so a real one's error bodies, rate limits and any status the tool does not name are exercised against fake transports only. It also means the request framing is unproven where it matters: the suite asserts that the delimited region carries the diff's words and that the instruction region does not, which is a claim about bytes this tool builds, not about how a server reads them. Nobody has shown a framed brief to a model from here. The two returns inside `_urllib_transport` are coverage misses (`model.py` 124 and 126) because the suite replaces that transport; both did run here, against a loopback stub that is deliberately not in the tree, so reproducing that evidence means writing the stub again. The other three misses are ordinary gaps in the test inputs: 172 wants a status outside the four the tool names, and 186 and 189 want a budget that is not positive or a brief that already fits it. |
 | Python 3.12 | `requires-python = ">=3.12"` and the CI matrix both claim it. Everything here ran on 3.13.5. Nothing in the code uses a 3.13-only construct, and that is a reading of the source, not a run. |
 | A pull request from a fork | `pr-summary.yml` passes `pull_request.head.sha` to `git diff`. On a forked PR that object may not exist in the checked-out history even at `fetch-depth: 0`, so the step would fail in `git diff` with exit 2. Not tested; needs a second repository. |
 
