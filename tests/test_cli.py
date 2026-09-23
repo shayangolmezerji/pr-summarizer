@@ -1,4 +1,6 @@
-"""CLI tests: the real main() against fixture diffs and a monkeypatched model."""
+"""CLI tests: the real main() against fixture diffs, with model access either
+stubbed at the summarize boundary or, for the failure path, replaced at the
+transport so the error text is the one the library actually builds."""
 
 from __future__ import annotations
 

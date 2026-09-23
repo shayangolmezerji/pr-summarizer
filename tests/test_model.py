@@ -1,4 +1,5 @@
-"""Tests for model access. Every call uses a fake transport; no socket opens.
+"""Tests for model access. Every call uses a fake transport except the one that
+checks what a refused port does, and that one reaches loopback only.
 
 The load-bearing assertions are that the outgoing body is the brief plus the
 instruction (not the raw diff), and that the API key never appears in any value
@@ -8,6 +9,7 @@ this module returns or raises.
 from __future__ import annotations
 
 import json
+import socket
 
 import pytest
 
@@ -100,6 +102,26 @@ def test_error_names_probable_env_without_the_key(status, suspect):
         model.summarize("BRIEF", environ=ENV, transport=transport)
     assert exc.value.suspect_env == suspect
     assert suspect in str(exc.value)
+    assert FAKE_KEY not in str(exc.value)
+
+
+def test_unreachable_endpoint_is_a_model_error_naming_the_base_url():
+    # A bound socket nobody ever listens on, so connect is refused at once, and
+    # held open so no other process can take the port mid-test. The transport is
+    # the real one: this is the case a fake transport cannot represent.
+    held = socket.socket()
+    held.bind(("127.0.0.1", 0))
+    port = held.getsockname()[1]
+    try:
+        with pytest.raises(model.ModelError) as exc:
+            model.summarize(
+                "BRIEF",
+                environ={**ENV, model.BASE_URL_ENV: f"http://127.0.0.1:{port}/v1"},
+            )
+    finally:
+        held.close()
+    assert exc.value.suspect_env == model.BASE_URL_ENV
+    assert model.BASE_URL_ENV in str(exc.value)
     assert FAKE_KEY not in str(exc.value)
 
 

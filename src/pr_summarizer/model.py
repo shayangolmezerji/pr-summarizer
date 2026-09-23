@@ -94,6 +94,15 @@ def _urllib_transport(url: str, headers: dict[str, str], body: bytes) -> tuple[i
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
+    except OSError as exc:
+        # URLError is an OSError, so this one branch covers a refused port, an
+        # unresolvable host and a timeout. Without it the caller gets a
+        # traceback instead of the brief, which is the failure the CLI exists
+        # to avoid. The URL is not quoted back: a base URL may carry userinfo.
+        raise ModelError(
+            f"cannot reach the model endpoint ({exc}); check {BASE_URL_ENV}",
+            suspect_env=BASE_URL_ENV,
+        ) from exc
 
 
 def summarize(
