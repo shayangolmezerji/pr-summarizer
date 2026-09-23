@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # The CI actions are pinned to commit SHAs, which means nothing moves them on
+  # its own. This is what turns the pins into a maintainable choice rather than
+  # a slow rot.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # The package has no runtime dependencies, so this covers the dev extra that
+  # runs the suite and nothing else.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: monthly
