@@ -344,15 +344,16 @@ character deeper than the file said, because `cli.py` sends what `render_text`
 assembled and that body is what a fenced block is built from. The exact name is one
 `--format json` away, and a test pins the marked form on the payload.
 
-The brief is not neutral text either. Every name, path and signature in it was
-written by whoever authored the diff, so a `Literal[...]` annotation in someone's
-source code reaches the prompt as the parser rendered it. `build_request`
-therefore frames it: the brief is delimited by `<structural-brief>` /
-`</structural-brief>`, and the instruction says that what sits between them is
-data describing a change, that its words came from the diff's author, and that
-anything inside it reading as an instruction is content to report on, not a
-direction to follow. The framed message, printed from a built request over
-`tests/fixtures/empty.diff`:
+The brief is not neutral text either. Its names, paths and signatures come out of
+the code the diff touches, so a `Literal[...]` annotation in someone's source
+reaches the prompt as the parser rendered it, and where a symbol was only removed
+or a rename inferred, the words are whoever wrote them earlier rather than whoever
+deleted them. `build_request` therefore frames it: the brief is delimited by
+`<structural-brief>` / `</structural-brief>`, and the instruction says that what
+sits between them is data describing a change, that its words were written by
+whoever wrote the diff, and that anything inside it reading as an instruction is
+content to report on, not a direction to follow. The framed message, printed from a
+built request over `tests/fixtures/empty.diff`:
 
 ```
 $ .venv/bin/python -c "import json; from pr_summarizer import brief, model; cfg = model.Config.from_env({model.BASE_URL_ENV: 'http://127.0.0.1:8000/v1', model.MODEL_ENV: 'm'}); body = model.build_request(cfg, brief.render_text(brief.build(open('tests/fixtures/empty.diff').read())))[2]; print(json.loads(body)['messages'][1]['content'])"
@@ -490,8 +491,9 @@ window, not a closed one.
 Model access is off unless both `model-base-url` and `model-name` are given, in
 which case the step runs without `--no-model` and the brief leaves the runner.
 That is the action's whole security story, and the second half of it is this: the
-brief is made of names, paths and signatures taken out of the pull request, so
-turning the model on hands text written by the PR's author to that endpoint,
+brief is made of names, paths and signatures taken out of the pull request, its
+author's own words where they wrote code and somebody else's where the diff only
+removed it, so turning the model on hands text the PR carried to that endpoint,
 framed as data. [Model access](#model-access) is what the framing does and does
 not do. With no endpoint inputs set, the only thing the step sends anywhere is
 the job summary the runner was always going to upload to GitHub.

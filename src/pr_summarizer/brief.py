@@ -1,4 +1,4 @@
-"""The brief: one deterministic structure that both renderings read from.
+r"""The brief: one deterministic structure that both renderings read from.
 
 A Brief is the whole product of the AST stage plus the cross-file view the diff
 alone cannot give a reader: which helpers moved between files, which names were
@@ -7,7 +7,7 @@ text and json are two views of this one object, so a terminal reader and a JSON
 consumer can never be shown different changes.
 
 The asymmetry between the two views is deliberate. `render_json` carries the path
-it was given: `json.dumps` turns a carriage return into `\\r`, so no line of it
+it was given: `json.dumps` turns a carriage return into `\r`, so no line of it
 can be a fence, and a machine consumer needs the real file name. `render_text`
 defuses every run of backticks as it emits them, and `fenced` defuses whatever it
 is handed and wraps it in the block. The guard sits at the block rather than

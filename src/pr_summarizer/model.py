@@ -6,14 +6,17 @@ a test can replace; nothing here opens a socket unless the default transport is
 used. Absent configuration is a normal path, not an error: the caller prints
 the structural brief and names the variable that is unset.
 
-Every name, path and signature in that brief was written by the author of the
-diff, so the request frames it: ``build_request`` puts the brief between
-``BRIEF_OPEN`` and ``BRIEF_CLOSE`` and the instruction says what those tokens
-mean. Framing is what lowers the chance a model treats a line from someone's
-source code as a direction to follow. It is not a wall: a hostile diff can
-still put text in the brief that reads like this module's own prose, or
-imitate the closing token. The consequence of that is a wrong summary in a
-pull request, which is why no model output here is trusted as an action.
+That brief is the diff author's text as much as it is this tool's: the names,
+paths and unparsed annotations in it came out of the code the diff touches, and
+where a symbol was only removed, or an inferred rename pairs two of them, the
+words are whoever wrote them earlier. Either way the request frames it:
+``build_request`` puts the brief between ``BRIEF_OPEN`` and ``BRIEF_CLOSE`` and
+the instruction says what those tokens mean. Framing is what lowers the chance a
+model treats a line from someone's source code as a direction to follow. It is not
+a wall: a hostile diff can still put text in the brief that reads like this
+module's own prose, or imitate the closing token. The consequence of that is a
+wrong summary in a pull request, which is why no model output here is trusted as an
+action.
 
 The API key is read from the environment and placed only in the Authorization
 header of the outgoing request. It is never interpolated into a result, an
