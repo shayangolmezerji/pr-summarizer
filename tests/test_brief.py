@@ -7,10 +7,18 @@ same bytes, and the text and json views must agree because they read one object.
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
 from pr_summarizer import brief
+
+# A run of backticks that is not already marked inert by the renderer.
+_LIVE_BACKTICK_RUN = re.compile(r"(?<![\\`])`+")
+# What CommonMark reads as a line, which includes a lone carriage return, and
+# what closes an open fence: up to three spaces of indent, three or more
+# backticks, nothing but spaces after them.
+_FENCE_LINE = re.compile(r" {0,3}`{3,} *")
 
 
 def _read(fixtures_dir, name):
@@ -19,6 +27,40 @@ def _read(fixtures_dir, name):
 
 def _brief(fixtures_dir, name):
     return brief.build(_read(fixtures_dir, name))
+
+
+def _crlf_patch(name: str) -> str:
+    """A patch for one file whose name is `name`, with CR in the line endings.
+
+    `git diff` on a runner writes LF headers, so this shape arrives as a fetched
+    or hand-built patch: the tool takes diff text from stdin or a path, and the
+    parser keeps a CR as part of a path rather than as a line ending.
+    """
+    body = "\r\n".join(
+        [
+            f"diff --git a/{name} b/{name}",
+            "index 0000000..1111111 100644",
+            f"--- a/{name}",
+            f"+++ b/{name}",
+            "@@ -0,0 +1 @@",
+            "+x = 1",
+        ]
+    )
+    return body + "\r\n"
+
+
+@pytest.mark.parametrize("name", ["```", "``", "`", "a```b"])
+def test_a_path_with_backticks_cannot_reach_a_fence(name):
+    text = brief.render_text(brief.build(_crlf_patch(name)))
+    # The path is still reported; defusing a run is not deleting it.
+    assert text.count("`") == name.count("`")
+    assert _LIVE_BACKTICK_RUN.findall(text) == []
+    lines = re.split(r"\r\n|\r|\n", text)
+    assert [ln for ln in lines if _FENCE_LINE.fullmatch(ln)] == []
+    # The json view is the machine contract and carries the path unchanged.
+    assert json.loads(brief.render_json(brief.build(_crlf_patch(name))))["files"][0]["path"] == (
+        f"{name}\r"
+    )
 
 
 def test_risk_line_names_symbol_and_call_sites(fixtures_dir):

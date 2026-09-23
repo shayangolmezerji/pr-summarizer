@@ -43,6 +43,11 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BRIEF: ${{ steps.brief.outputs.brief }}
         run: |
-          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(
-            printf '## Structural summary\n\n```text\n%s\n```\n' "$BRIEF"
-          )"
+          # The body reaches gh through a file, not argv. It is diff-derived text,
+          # and argv is readable by any other process on the runner for the life of
+          # the call, in a single argument whose length is shared with the
+          # environment block. A file has neither of those properties.
+          printf '## Structural summary\n\n```text\n%s\n```\n' "$BRIEF" \
+            > "$RUNNER_TEMP/pr-comment-body.md"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
+            --body-file "$RUNNER_TEMP/pr-comment-body.md"

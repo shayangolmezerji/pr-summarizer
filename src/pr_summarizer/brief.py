@@ -5,15 +5,40 @@ alone cannot give a reader: which helpers moved between files, which names were
 renamed, which public signatures moved and how many times this diff calls them.
 text and json are two views of this one object, so a terminal reader and a JSON
 consumer can never be shown different changes.
+
+The one asymmetry between them is deliberate. `render_text` defuses runs of
+backticks, because its output is what the Action and the example workflow wrap in
+a fenced block, and a backtick run that came out of the diff could close that
+fence early and leave the rest of the brief rendering as markdown in a comment
+authored by the bot. `render_json` carries the path it was given: `json.dumps`
+turns a carriage return into `\\r`, so no line of it can be a fence, and a machine
+consumer needs the real file name.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 
 from . import ast_stage, diff
 from .ast_stage import FileAnalysis, Symbol
+
+# A run of backticks, however long: three of them are a fence and one or two are
+# an inline-code span, and both kinds are the diff author's punctuation.
+_BACKTICK_RUN = re.compile(r"`+")
+
+
+def _defuse_backtick_runs(text: str) -> str:
+    """Prefix every run of backticks with a backslash, once, over the whole body.
+
+    Applied to the assembled text rather than to the path field alone so that
+    nothing else the diff authored, an annotation's string literal or a
+    decorator expression either, gets a live run into the fence. Inside a fenced
+    block markdown does not un-escape, so a hostile path reads as a backslash and
+    its backticks there: inert, and visibly altered rather than silently dropped.
+    """
+    return _BACKTICK_RUN.sub(r"\\\g<0>", text)
 
 
 @dataclass
@@ -228,7 +253,7 @@ def render_text(brief: Brief) -> str:
         out.extend(f"  - {line}" for line in brief.risk)
     else:
         out.append("  none")
-    return "\n".join(out).rstrip() + "\n"
+    return _defuse_backtick_runs("\n".join(out).rstrip() + "\n")
 
 
 def _render_symbols(out: list[str], a: FileAnalysis, brief: Brief) -> None:
