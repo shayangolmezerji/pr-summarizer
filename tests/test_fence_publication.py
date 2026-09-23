@@ -146,3 +146,32 @@ def test_every_shell_body_in_the_publishing_path_sets_the_ballot_options():
             checked += 1
             assert body[0] == "set -euo pipefail", f"{rel}: {body[0]}"
     assert checked == 2
+
+
+_USES = re.compile(r"^ *(?:- )?uses: (\S+)(.*)$")
+_TAG_REF = re.compile(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}")
+_RELEASE_NOTE = re.compile(r" # v[0-9][\w.+-]*")
+
+
+def test_every_action_this_repo_points_at_is_pinned_to_a_commit():
+    """`uses: ./` is this checkout; everything else is somebody else's tag.
+
+    The workflow that calls this action fires on pull_request with
+    pull-requests: write, so a moving upstream tag is a path onto a runner
+    holding that token. Checked across all three files, including ci.yml,
+    which is not edited here: the claim being tested is the repo's, not one
+    file's.
+    """
+    checked = 0
+    for rel in ("action.yml", ".github/workflows/ci.yml", ".github/workflows/pr-summary.yml"):
+        for line in (ROOT / rel).read_text().splitlines():
+            m = _USES.match(line)
+            if m is None:
+                continue
+            checked += 1
+            ref, rest = m.groups()
+            if ref == "./":
+                continue
+            assert _TAG_REF.fullmatch(ref), f"{rel}: {line}"
+            assert _RELEASE_NOTE.fullmatch(rest), f"{rel}: {line}"
+    assert checked == 5
