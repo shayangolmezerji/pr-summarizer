@@ -1,0 +1,83 @@
+name: PR Structural Summary
+description: >
+  Compute a structural brief of a pull-request diff with the stdlib ast and
+  write it to the job summary. Model prose is opt-in: with no endpoint inputs
+  set, the tool is run with --no-model and nothing leaves the runner.
+
+# What this action guarantees an operator: the structural brief is computed
+# locally and always shown. The optional model call only happens when
+# model-base-url AND model-name are provided, so enabling it is a deliberate
+# act that accepts the brief being sent to that endpoint.
+
+inputs:
+  base:
+    description: Start revision of the diff range, usually the PR base sha.
+    required: true
+  head:
+    description: End revision of the diff range, usually the PR head sha.
+    required: false
+    default: ${{ github.sha }}
+  model-base-url:
+    description: >
+      OpenAI-compatible base URL. Set only if you accept the structural brief
+      leaving the runner. Empty disables the model.
+    required: false
+    default: ""
+  model-name:
+    description: Model name sent in the request.
+    required: false
+    default: ""
+  model-api-key:
+    description: Bearer token for the endpoint. Never echoed into any output.
+    required: false
+    default: ""
+
+outputs:
+  brief:
+    description: The structural brief text, for a caller to post as a comment.
+    value: ${{ steps.brief.outputs.brief }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        # Both ends of the range have to exist locally to diff them.
+        fetch-depth: 0
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install pr-summarizer
+      shell: bash
+      run: pip install "$GITHUB_ACTION_PATH"
+
+    - name: Build the structural brief
+      id: brief
+      shell: bash
+      env:
+        PRSUMMARIZER_BASE_URL: ${{ inputs.model-base-url }}
+        PRSUMMARIZER_MODEL: ${{ inputs.model-name }}
+        PRSUMMARIZER_API_KEY: ${{ inputs.model-api-key }}
+        BASE: ${{ inputs.base }}
+        HEAD: ${{ inputs.head }}
+      run: |
+        set -euo pipefail
+        flags=(--git "$BASE" "$HEAD")
+        if [ -z "${PRSUMMARIZER_BASE_URL}" ] || [ -z "${PRSUMMARIZER_MODEL}" ]; then
+          flags+=(--no-model)
+        fi
+        # The file holds the raw brief for the output; the step summary gets a
+        # fenced copy so markdown renders the indentation verbatim.
+        pr-summarizer "${flags[@]}" > "$RUNNER_TEMP/pr-brief.txt"
+        {
+          printf '```text\n'
+          cat "$RUNNER_TEMP/pr-brief.txt"
+          printf '```\n'
+        } >> "$GITHUB_STEP_SUMMARY"
+        {
+          echo 'brief<<PRSUMMARIZER_BRIEF_EOF'
+          cat "$RUNNER_TEMP/pr-brief.txt"
+          echo 'PRSUMMARIZER_BRIEF_EOF'
+        } >> "$GITHUB_OUTPUT"

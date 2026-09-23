@@ -1,0 +1,46 @@
+name: PR summary
+
+# Reads a pull-request diff, builds a structural brief with the stdlib ast, and
+# posts it as a comment. This workflow has never run: it is defined here as the
+# documented way to use the action, not as an executed result.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  structural-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Structural brief
+        id: brief
+        # The composite action checks the repository out itself (fetch-depth 0,
+        # so both ends of the diff range exist) and installs the package before
+        # running it. No separate checkout step is needed here.
+        uses: ./
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          # Model access is OFF unless all three are set. Leaving them unset
+          # means the job posts the structural brief computed on the runner and
+          # sends no diff, no brief and no source to any third-party endpoint.
+          # Point model-base-url at a provider only once you accept that the
+          # brief (a summary of your source, not the source) is sent to it.
+          model-base-url: ${{ vars.PRSUMMARIZER_BASE_URL }}
+          model-name: ${{ vars.PRSUMMARIZER_MODEL }}
+          model-api-key: ${{ secrets.PRSUMMARIZER_API_KEY }}
+
+      - name: Comment on the pull request
+        # GITHUB_TOKEN is provided by the runner and scoped to this repo; no
+        # personal or third-party token is used.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BRIEF: ${{ steps.brief.outputs.brief }}
+        run: |
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body "$(
+            printf '## Structural summary\n\n```text\n%s\n```\n' "$BRIEF"
+          )"
