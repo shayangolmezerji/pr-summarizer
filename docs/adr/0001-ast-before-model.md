@@ -6,7 +6,7 @@ Accepted. 2026-09-23.
 
 Split the claims in this record before believing it. Executed on this machine,
 on Python 3.13.5: the byte counts in the table, the repeat-run check, the
-clean-room install, the two `pip install` closures, and the 90 tests over the
+clean-room install, the two `pip install` closures, and the 91 tests over the
 seven-fixture corpus. Read and argued, never executed: everything about what a
 language model does with a brief rather than a raw diff. No provider was
 contacted from here and no endpoint answered one, so nobody watched a model do
@@ -32,7 +32,7 @@ brief renders for the same range:
 | Range | what it is | diff | brief | ratio |
 |---|---|---|---|---|
 | `6b1b705..d68dd2f` | everything after the scaffold commit, 2,592 diff lines over 21 files, most of them Python added whole | 90,348 B | 20,074 B | 4.5x |
-| `c7b6def..d68dd2f` | the last three commits, 1,306 lines, two modules added and one edited | 45,919 B | 10,589 B | 4.3x |
+| `c7b6def..d68dd2f` | the last three commits, 1,306 lines, two modules added and one edited | 45,919 B | 10,594 B | 4.3x |
 | `d68dd2f~1..d68dd2f` | one commit adding three YAML files, 174 lines | 5,952 B | 443 B | 13.4x |
 
 Read those numbers for what they are. The two around 4x are ranges dominated by
@@ -176,7 +176,7 @@ not demonstrated.
 above, and costs the determinism: a model re-summarising the same diff twice
 gives two wordings, so the brief could not be the artifact a reviewer quotes,
 and the suite could not assert anything about it. The tests are written against
-the structural brief for exactly that reason, which is how a 90-test suite runs
+the structural brief for exactly that reason, which is how a 91-test suite runs
 in under half a second with no network. This is also the alternative whose
 premise this machine could not check: the argument that a model reviews shape
 better when handed shape is reasoning about model behaviour, not a result.
