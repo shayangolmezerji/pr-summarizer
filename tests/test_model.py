@@ -17,7 +17,9 @@ import pytest
 from pr_summarizer import brief as brief_mod
 from pr_summarizer import model
 
-FAKE_KEY = "sk-fake-not-a-real-key-0123456789"
+# Distinctive enough to prove it never leaks, and deliberately not key-shaped, so
+# that nothing in this repository resembles a secret.
+FAKE_KEY = "not-a-real-key-0123456789"
 ENV = {
     model.BASE_URL_ENV: "https://example.invalid/v1",
     model.MODEL_ENV: "some-model",
