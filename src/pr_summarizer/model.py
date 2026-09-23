@@ -4,7 +4,7 @@ The brief, not the raw diff, is what gets sent. The request is assembled in
 ``build_request`` and handed to a transport callable, so the network is a seam
 a test can replace; nothing here opens a socket unless the default transport is
 used. Absent configuration is a normal path, not an error: the caller prints
-the structural brief and says why it stopped.
+the structural brief and names the variable that is unset.
 
 The API key is read from the environment and placed only in the Authorization
 header of the outgoing request. It is never interpolated into a result, an
@@ -88,19 +88,23 @@ def build_request(config: Config, brief_text: str) -> tuple[str, dict[str, str],
 
 
 def _urllib_transport(url: str, headers: dict[str, str], body: bytes) -> tuple[int, bytes]:
-    req = urllib.request.Request(url, data=body, headers=headers, method="POST")
     try:
+        # Request() is inside the try on purpose: it is where urllib rejects a
+        # base URL with no scheme, before any socket exists.
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=60) as resp:
             return resp.status, resp.read()
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read()
-    except OSError as exc:
-        # URLError is an OSError, so this one branch covers a refused port, an
-        # unresolvable host and a timeout. Without it the caller gets a
-        # traceback instead of the brief, which is the failure the CLI exists
-        # to avoid. The URL is not quoted back: a base URL may carry userinfo.
+    except (OSError, ValueError) as exc:
+        # URLError is an OSError, so that half covers a refused port, an
+        # unresolvable host and a timeout; ValueError is a base URL whose scheme
+        # urllib cannot dispatch, which is what a missing "https://" produces.
+        # Uncaught, both end the run in a traceback and take the computed brief
+        # with them. The transport's own text is quoted for the diagnosis and
+        # can never carry the key, which travels in a header, not in a URL.
         raise ModelError(
-            f"cannot reach the model endpoint ({exc}); check {BASE_URL_ENV}",
+            f"cannot talk to the model endpoint ({exc}); check {BASE_URL_ENV}",
             suspect_env=BASE_URL_ENV,
         ) from exc
 

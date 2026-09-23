@@ -1,5 +1,6 @@
-"""Tests for model access. Every call uses a fake transport except the one that
-checks what a refused port does, and that one reaches loopback only.
+"""Tests for model access. Every call uses a fake transport except the two that
+check what an unreachable endpoint and a schemeless base URL do: the first
+reaches loopback only, the second never gets as far as a socket.
 
 The load-bearing assertions are that the outgoing body is the brief plus the
 instruction (not the raw diff), and that the API key never appears in any value
@@ -122,6 +123,15 @@ def test_unreachable_endpoint_is_a_model_error_naming_the_base_url():
         held.close()
     assert exc.value.suspect_env == model.BASE_URL_ENV
     assert model.BASE_URL_ENV in str(exc.value)
+    assert FAKE_KEY not in str(exc.value)
+
+
+def test_base_url_without_a_scheme_is_a_model_error():
+    # urllib raises ValueError here, not URLError, and before any socket: the
+    # plausible typo of a missing https:// must not end the run in a traceback.
+    with pytest.raises(model.ModelError) as exc:
+        model.summarize("BRIEF", environ={**ENV, model.BASE_URL_ENV: "api.example.invalid/v1"})
+    assert exc.value.suspect_env == model.BASE_URL_ENV
     assert FAKE_KEY not in str(exc.value)
 
 
