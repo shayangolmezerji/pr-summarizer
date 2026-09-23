@@ -95,7 +95,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 max_bytes=args.max_context,
             )
         except model.NotConfiguredError as exc:
-            print(f"model skipped ({exc}); showing the structural brief alone", file=sys.stderr)
+            print(
+                f"model not configured ({exc}); the structural brief does not need one",
+                file=sys.stderr,
+            )
         except model.ModelError as exc:
             # The brief is the product; a model failure must not hide it. The
             # exit code carries the failure, the render below still happens.

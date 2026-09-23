@@ -29,7 +29,7 @@ def test_no_config_prints_brief_and_exits_zero(fixtures_dir, capsys):
     assert code == cli.EXIT_OK
     out = capsys.readouterr()
     assert "structural brief:" in out.out
-    assert "model skipped" in out.err
+    assert "model not configured" in out.err
     assert "PRSUMMARIZER_BASE_URL" in out.err
 
 

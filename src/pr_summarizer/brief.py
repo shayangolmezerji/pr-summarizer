@@ -3,8 +3,8 @@
 A Brief is the whole product of the AST stage plus the cross-file view the diff
 alone cannot give a reader: which helpers moved between files, which names were
 renamed, which public signatures moved and how many times this diff calls them.
-text and json are two views of this one object, which is what keeps the Action's
-machine output and the human output from ever disagreeing.
+text and json are two views of this one object, so a terminal reader and a JSON
+consumer can never be shown different changes.
 """
 
 from __future__ import annotations
