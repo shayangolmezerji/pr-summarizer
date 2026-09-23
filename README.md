@@ -173,44 +173,45 @@ pytest-cov and ruff, and it is only needed to run the suite. Those two commands
 ran verbatim in a copy of the tree and resolved pytest 9.1.1, pytest-cov 7.1.0,
 coverage 7.16.1 and ruff 0.16.8 alongside the package, which pulls nothing
 itself. That the package installs nothing else is the claim worth checking, so
-both install forms were run here in throwaway venvs against `/tmp/ps-neutral-1`,
-a copy of this tree with `.git` and `.venv` removed, so the transcripts below
-carry a throwaway path and not a checkout. pip's build chatter is elided:
+both install forms were run here in throwaway venvs against `/tmp/ps-neutral-2`,
+a copy of this tree, `tools/` included, with `.git`, `.venv`, `.coverage` and
+the caches left out, so the transcripts below carry a throwaway path and not a
+checkout. pip's build chatter is elided:
 
 ```
-$ python3 -m venv /tmp/cr-ps-e
-$ /tmp/cr-ps-e/bin/pip install -e /tmp/ps-neutral-1
+$ python3 -m venv /tmp/cr-ps-e2
+$ /tmp/cr-ps-e2/bin/pip install -e /tmp/ps-neutral-2
 ...
 Successfully built pr-summarizer
 Installing collected packages: pr-summarizer
 Successfully installed pr-summarizer-0.1.0
-$ /tmp/cr-ps-e/bin/pip show pr-summarizer | grep -i requires
+$ /tmp/cr-ps-e2/bin/pip show pr-summarizer | grep -i requires
 Requires:
-$ /tmp/cr-ps-e/bin/python -c "import pr_summarizer; print(pr_summarizer.__version__)"
+$ /tmp/cr-ps-e2/bin/python -c "import pr_summarizer; print(pr_summarizer.__version__)"
 0.1.0
-$ /tmp/cr-ps-e/bin/pip freeze
+$ /tmp/cr-ps-e2/bin/pip freeze
 # Editable install with no version control (pr-summarizer==0.1.0)
--e /tmp/ps-neutral-1
+-e /tmp/ps-neutral-2
 ```
 
 An editable install is still pointed at a source tree, so a second venv took the
 path a user takes:
 
 ```
-$ python3 -m venv /tmp/cr-ps-f
-$ /tmp/cr-ps-f/bin/pip install /tmp/ps-neutral-1
+$ python3 -m venv /tmp/cr-ps-f2
+$ /tmp/cr-ps-f2/bin/pip install /tmp/ps-neutral-2
 ...
 Successfully installed pr-summarizer-0.1.0
 $ cd /tmp
-$ /tmp/cr-ps-f/bin/pr-summarizer --no-model /tmp/ps-neutral-1/tests/fixtures/lifecycle.diff | head -4
+$ /tmp/cr-ps-f2/bin/pr-summarizer --no-model /tmp/ps-neutral-2/tests/fixtures/lifecycle.diff | head -4
 structural brief: 4 file(s) changed
 
 brand_new.py  [added]
   symbols added:
-$ /tmp/cr-ps-f/bin/pip show pr-summarizer | grep -i requires
+$ /tmp/cr-ps-f2/bin/pip show pr-summarizer | grep -i requires
 Requires:
-$ /tmp/cr-ps-f/bin/pip freeze
-pr-summarizer @ file:///tmp/ps-neutral-1
+$ /tmp/cr-ps-f2/bin/pip freeze
+pr-summarizer @ file:///tmp/ps-neutral-2
 ```
 
 That `pip freeze` is one line and nothing else, and from `/tmp` the console
@@ -710,7 +711,7 @@ environment.
 
 | Thing | What is unproven |
 |---|---|
-| `action.yml` | GitHub has never run it. Only the step's shell body ran here, in bash, with the runner variables pointed at scratch files. Its `pip install "$GITHUB_ACTION_PATH"` was reproduced in the same non-editable form against a copy of the tree; `fetch-depth: 0`, the `inputs.*` context expressions and the resolution of `uses: ./` have never been interpreted by anything. |
+| `action.yml` | GitHub has never run it. Only the step's shell body ran here, in bash, with the runner variables pointed at scratch files. Its `pip install "$GITHUB_ACTION_PATH"` was reproduced in the same non-editable form against `/tmp/ps-neutral-2`, the copy the Installation transcripts ran from; `fetch-depth: 0`, the `inputs.*` context expressions and the resolution of `uses: ./` have never been interpreted by anything. |
 | `.github/workflows/ci.yml` | Never run. `actionlint` is not installed here and cannot be. Its three `run:` lines were each executed by hand, in the clean-room venv for the install one, and the YAML parses. |
 | `.github/workflows/pr-summary.yml` | Never run by GitHub. Its comment step's `run:` body did run here, in bash, but the `gh` it reached was a script on `PATH` that echoes its arguments: `gh` is deliberately off-limits in this environment, so no comment was ever sent and `--body-file` was never read by anything that would post it. Nothing about the step's `env:` interpolation or the runner's `RUNNER_TEMP` lifetime has been interpreted by GitHub. |
 | A live model provider | No provider was contacted, so a real one's error bodies, rate limits and any status the tool does not name are exercised against fake transports only. It also means the request framing is unproven where it matters: the suite asserts that the delimited region carries the diff's words and that the instruction region does not, which is a claim about bytes this tool builds, not about how a server reads them. Nobody has shown a framed brief to a model from here. The two returns inside `_urllib_transport` are coverage misses (`model.py` 124 and 126) because the suite replaces that transport; both did run here, against a loopback stub that is deliberately not in the tree, so reproducing that evidence means writing the stub again. The other three misses are ordinary gaps in the test inputs: 172 wants a status outside the four the tool names, and 186 and 189 want a budget that is not positive or a brief that already fits it. |
