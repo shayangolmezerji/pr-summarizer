@@ -257,9 +257,13 @@ def _render_symbols(out: list[str], a: FileAnalysis, brief: Brief) -> None:
 def _render_placements(out: list[str], a: FileAnalysis) -> None:
     if not a.placements:
         return
+    # "top-level" is a claim about where a hunk sits, and only a parsed symbol
+    # map can support it. With the delta withheld the map is empty because
+    # nothing was established, so an unplaced hunk has to say so out loud.
+    unplaced = "top-level" if a.parsed and not a.untrusted else "not attributed"
     parts = []
     for p in a.placements:
-        label = ", ".join(p.inside) if p.inside else "top-level"
+        label = ", ".join(p.inside) if p.inside else unplaced
         parts.append(f"hunk@{p.new_start}-{p.new_end} -> {label}")
     out.append("  hunks: " + "; ".join(parts))
 

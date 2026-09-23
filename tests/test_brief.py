@@ -74,6 +74,16 @@ def test_untrusted_file_shows_a_withheld_delta(fixtures_dir):
     assert "delta withheld" in text
 
 
+def test_withheld_delta_does_not_claim_a_hunk_position(fixtures_dir):
+    # An empty symbol map from a failed parse is not evidence that a hunk sits
+    # outside every symbol, so the render must not print the position label.
+    text = brief.render_text(_brief(fixtures_dir, "unparse"))
+    assert "not attributed" in text
+    assert "top-level" not in text
+    # Where the map is real, the label still means what it says.
+    assert "top-level" in brief.render_text(_brief(fixtures_dir, "shape"))
+
+
 def test_empty_diff_renders_zero_files(fixtures_dir):
     b = _brief(fixtures_dir, "empty")
     assert b.files_changed == 0
