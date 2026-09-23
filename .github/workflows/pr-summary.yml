@@ -43,6 +43,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           BRIEF: ${{ steps.brief.outputs.brief }}
         run: |
+          set -euo pipefail
           # The body reaches gh through a file, not argv. It is diff-derived text,
           # and argv is readable by any other process on the runner for the life of
           # the call, in a single argument whose length is shared with the

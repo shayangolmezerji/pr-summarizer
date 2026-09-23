@@ -114,3 +114,35 @@ def test_whoever_writes_a_fence_calls_the_helper():
         assert "from pr_summarizer.brief import fenced" in text, rel
         # No hand-written fence left: the opener and the closer come from one place.
         assert "```text" not in text, rel
+
+
+def _run_bodies(text: str) -> list[list[str]]:
+    """The lines of each `run: |` block, in order of appearance."""
+    bodies: list[list[str]] = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if not line.rstrip().endswith("run: |"):
+            continue
+        indent = len(line) - len(line.lstrip())
+        body = []
+        for following in lines[i + 1 :]:
+            if following.strip() and len(following) - len(following.lstrip()) <= indent:
+                break
+            body.append(following.strip())
+        bodies.append(body)
+    return bodies
+
+
+def test_every_shell_body_in_the_publishing_path_sets_the_ballot_options():
+    # The step that publishes is the step that must not half-run: an unset
+    # variable or a failed pipe stops it, in both files, the same way. The
+    # comment step is the sibling that had not been told. The count is the
+    # guard against the scanner quietly finding nothing to check.
+    checked = 0
+    for rel in _FENCE_WRITERS:
+        for body in _run_bodies((ROOT / rel).read_text()):
+            if not body:
+                continue
+            checked += 1
+            assert body[0] == "set -euo pipefail", f"{rel}: {body[0]}"
+    assert checked == 2
