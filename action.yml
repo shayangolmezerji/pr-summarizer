@@ -5,9 +5,10 @@ description: >
   set, the tool is run with --no-model and nothing leaves the runner.
 
 # What this action guarantees an operator: the structural brief is computed
-# locally and always shown. The optional model call only happens when
-# model-base-url AND model-name are provided, so enabling it is a deliberate
-# act that accepts the brief being sent to that endpoint.
+# locally and reaches the job summary even when the optional model call fails,
+# which still reddens the step. The model call only happens when model-base-url
+# AND model-name are provided, so enabling it is a deliberate act that accepts
+# the brief being sent to that endpoint.
 
 inputs:
   base:
@@ -69,8 +70,11 @@ runs:
           flags+=(--no-model)
         fi
         # The file holds the raw brief for the output; the step summary gets a
-        # fenced copy so markdown renders the indentation verbatim.
-        pr-summarizer "${flags[@]}" > "$RUNNER_TEMP/pr-brief.txt"
+        # fenced copy so markdown renders the indentation verbatim. A failing
+        # model call exits 3, and the brief it fails on is the one thing the
+        # step must still publish, so the status is carried and re-raised last.
+        rc=0
+        pr-summarizer "${flags[@]}" > "$RUNNER_TEMP/pr-brief.txt" || rc=$?
         {
           printf '```text\n'
           cat "$RUNNER_TEMP/pr-brief.txt"
@@ -81,3 +85,4 @@ runs:
           cat "$RUNNER_TEMP/pr-brief.txt"
           echo 'PRSUMMARIZER_BRIEF_EOF'
         } >> "$GITHUB_OUTPUT"
+        exit "$rc"
