@@ -476,10 +476,16 @@ escapes a carriage return, so the machine view cannot contain a fence line, and 
 consumer of it needs the real file name.
 
 The comment step no longer hands the body to `gh` through argv either; it writes
-the fenced text under `RUNNER_TEMP` and passes `--body-file`. A command line is
-readable by any other process on the runner for the life of the call, and the
-body's length stops being the step's own business there; a file has neither
-problem.
+the fenced text under `RUNNER_TEMP` and passes `--body-file`. The two reasons that
+hold are size and fidelity: as one argument the body counts against the runner's
+`ARG_MAX`, which that limit shares with the environment block, and text carried
+through a shell substitution loses its trailing newlines. What did not change is
+the exposure, which moved rather than shrank. argv was readable by any other
+process on the runner for the life of the call; the file is readable for the life
+of the step, and a `gh` that failed used to leave it behind for the rest of the
+job. The step now removes it on its way out, trap and all, so both runs reported
+below found no body file in `RUNNER_TEMP` afterwards whatever `gh` did. A shorter
+window, not a closed one.
 
 Model access is off unless both `model-base-url` and `model-name` are given, in
 which case the step runs without `--no-model` and the brief leaves the runner.

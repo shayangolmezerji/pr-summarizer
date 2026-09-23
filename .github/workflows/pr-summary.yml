@@ -44,10 +44,16 @@ jobs:
           BRIEF: ${{ steps.brief.outputs.brief }}
         run: |
           set -euo pipefail
-          # The body reaches gh through a file, not argv. It is diff-derived text,
-          # and argv is readable by any other process on the runner for the life of
-          # the call, in a single argument whose length is shared with the
-          # environment block. A file has neither of those properties.
+          # The body reaches gh through a file, not argv, for two reasons that
+          # hold: as one argument its length counts against the runner's ARG_MAX,
+          # shared with the environment block, and text carried through a shell
+          # substitution loses its trailing newlines. What did not change is the
+          # exposure. argv was readable for the life of the call; this file is
+          # readable for the life of the step, and used to outlive a gh that
+          # failed. So it goes on the step's way out, trap and all: the window is
+          # shorter than the job, not closed.
+          body="$RUNNER_TEMP/pr-comment-body.md"
+          trap 'rm -f "$body"' EXIT
           {
             printf '## Structural summary\n\n'
             # The fence is written by the package's helper, because $BRIEF is the
@@ -56,6 +62,5 @@ jobs:
             # setup-python in this job.
             printf '%s' "$BRIEF" \
               | python -c 'import sys; from pr_summarizer.brief import fenced; sys.stdout.write(fenced(sys.stdin.read()))'
-          } > "$RUNNER_TEMP/pr-comment-body.md"
-          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
-            --body-file "$RUNNER_TEMP/pr-comment-body.md"
+          } > "$body"
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$body"
