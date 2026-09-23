@@ -295,8 +295,13 @@ def _fmt_renames(brief: Brief) -> str:
     return ", ".join(f"{r.frm}->{r.to} in {r.path}" for r in brief.renames)
 
 
-def render_json(brief: Brief) -> str:
-    return json.dumps(_to_dict(brief), indent=2, sort_keys=True) + "\n"
+def render_json(brief: Brief, summary: str | None = None) -> str:
+    """Machine view. When a model summary exists it rides along in the same
+    document, so `--format json` never emits two concatenated payloads."""
+    data = _to_dict(brief)
+    if summary is not None:
+        data["summary"] = summary
+    return json.dumps(data, indent=2, sort_keys=True) + "\n"
 
 
 def _to_dict(brief: Brief) -> dict:
