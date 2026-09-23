@@ -11,7 +11,7 @@ import pytest
 
 from pr_summarizer import cli, model
 
-FAKE_KEY = "sk-fake-not-a-real-key-0123456789"
+FAKE_KEY = "not-a-real-key-0123456789"
 
 
 @pytest.fixture(autouse=True)
