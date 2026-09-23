@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Stands in for `gh` so a workflow step that calls it can be executed here.
+#
+# gh is off-limits in this environment, and README's published comment-step
+# transcript has to say what the step handed over rather than what GitHub did
+# with it. So this echoes the arguments exactly as received and copies the file
+# named by --body-file, if any, to $GH_STUB_COPY. It posts nothing anywhere.
+set -euo pipefail
+
+echo "gh $*"
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "--body-file" ]; then
+    cp "$arg" "$GH_STUB_COPY"
+  fi
+  prev="$arg"
+done

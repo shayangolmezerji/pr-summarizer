@@ -55,6 +55,9 @@ select = [
 # The CLI printing the brief and the model's reply is the product; T20 applies
 # to the library, which must stay silent and return data.
 "src/pr_summarizer/cli.py" = ["T201", "T203"]
+# Same reason for the scripts under tools/: each is a standalone command whose
+# whole job is the line it prints, and none of them is importable library code.
+"tools/*" = ["T201"]
 "tests/*" = ["PT006", "PT007"]
 
 [tool.pytest.ini_options]
