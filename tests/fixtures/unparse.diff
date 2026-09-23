@@ -1,0 +1,10 @@
+diff --git a/broken.py b/broken.py
+index 3de7b4c..d21f0cd 100644
+--- a/broken.py
++++ b/broken.py
+@@ -1,2 +1,5 @@
+ def ok():
+     return 1
++
++def broken(
++    x, y  # missing closing paren

@@ -1,0 +1,69 @@
+diff --git a/callers.py b/callers.py
+index e51d364..560d5cd 100644
+--- a/callers.py
++++ b/callers.py
+@@ -1,12 +1,12 @@
+-from store import append, combine
++from store import append
+ 
+ 
+ def write_pair(rec):
+     append("log", rec)
+-    return combine(1, 2)
++    return rec.value
+ 
+ 
+ def write_two(a, b):
+     append("log", a)
+     append("log", b)
+-    return combine(a.value, b.value)
++    return a.value + b.value
+diff --git a/ops.py b/ops.py
+new file mode 100644
+index 0000000..245ec78
+--- /dev/null
++++ b/ops.py
+@@ -0,0 +1,5 @@
++"""Helpers that no longer live in the persistence layer."""
++
++
++def combine(a, b):
++    return a + b
+diff --git a/store.py b/store.py
+index cad3ccd..a6ebd65 100644
+--- a/store.py
++++ b/store.py
+@@ -1,8 +1,9 @@
+-"""Persistence for app state."""
++"""Persistence for app state, newline-safe."""
+ 
+ from __future__ import annotations
+ 
+ import json
++import os
+ from dataclasses import dataclass
+ 
+ 
+@@ -12,9 +13,13 @@ class Record:
+     value: int
+ 
+ 
+-def append(path, record):
++def append(path: str, record: Record, *, sync: bool = False) -> bool:
++    """Append one record and optionally flush it to disk."""
+     with open(path, "a") as fh:
+         fh.write(json.dumps(record.__dict__) + "\n")
++        if sync:
++            fh.flush()
++            os.fsync(fh.fileno())
+     return True
+ 
+ 
+@@ -23,7 +28,3 @@ def read_all(path):
+     for line in open(path):
+         records.append(json.loads(line))
+     return records
+-
+-
+-def combine(a, b):
+-    return a + b

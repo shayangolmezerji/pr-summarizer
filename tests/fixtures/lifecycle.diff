@@ -1,0 +1,35 @@
+diff --git a/brand_new.py b/brand_new.py
+new file mode 100644
+index 0000000..b76b195
+--- /dev/null
++++ b/brand_new.py
+@@ -0,0 +1,2 @@
++def fresh():
++    return 'new file'
+diff --git a/gone.py b/gone.py
+deleted file mode 100644
+index c626f52..0000000
+--- a/gone.py
++++ /dev/null
+@@ -1,2 +0,0 @@
+-def gone():
+-    return 0
+diff --git a/moved.py b/renamed.py
+similarity index 87%
+rename from moved.py
+rename to renamed.py
+index 857893f..0ab763d 100644
+--- a/moved.py
++++ b/renamed.py
+@@ -3,7 +3,7 @@ import os
+ 
+ def helper(x):
+     base = x * 2
+-    scaled = base + 1
++    scaled = base + 3  # tweaked
+     rounded = round(scaled)
+     clamped = max(0, min(rounded, 100))
+     normalized = clamped / 100.0
+diff --git a/tool.sh b/tool.sh
+old mode 100644
+new mode 100755
