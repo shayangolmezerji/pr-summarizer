@@ -315,6 +315,15 @@ appears in no message, no return value and no exception text, and no example her
 carries anything key-shaped: an unset `PRSUMMARIZER_API_KEY` means no
 `Authorization` header at all, which is what a local server expects.
 
+The fixtures were held to the same rule and one revision of them missed it. The
+first commits of `tests/test_cli.py` and `tests/test_model.py` used
+`sk-fake-not-a-real-key-0123456789`, which announces itself as a placeholder and
+is still shaped like a key. Those blobs are in this repository's history, so the
+sentence is here rather than a rewrite. Both files now use
+`not-a-real-key-0123456789`. Nothing else key-shaped exists in any object of
+either store, checked across every blob, tree and commit rather than the working
+trees alone, and no credential has ever been committed here.
+
 What that looks like when nothing is listening on the port. The `export` form
 above was run too, and this inline form is the transcript:
 
