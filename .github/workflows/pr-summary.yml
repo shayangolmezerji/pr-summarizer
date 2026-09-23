@@ -47,7 +47,14 @@ jobs:
           # and argv is readable by any other process on the runner for the life of
           # the call, in a single argument whose length is shared with the
           # environment block. A file has neither of those properties.
-          printf '## Structural summary\n\n```text\n%s\n```\n' "$BRIEF" \
-            > "$RUNNER_TEMP/pr-comment-body.md"
+          {
+            printf '## Structural summary\n\n'
+            # The fence is written by the package's helper, because $BRIEF is the
+            # action's whole stdout: the brief plus, when a model answered, prose
+            # no renderer here defused. `python` is on PATH because the action ran
+            # setup-python in this job.
+            printf '%s' "$BRIEF" \
+              | python -c 'import sys; from pr_summarizer.brief import fenced; sys.stdout.write(fenced(sys.stdin.read()))'
+          } > "$RUNNER_TEMP/pr-comment-body.md"
           gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" \
             --body-file "$RUNNER_TEMP/pr-comment-body.md"

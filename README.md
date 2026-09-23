@@ -337,7 +337,12 @@ the brief.
 
 The request body is the rendered brief plus a short instruction to write an
 architectural summary. It is never the raw diff; a test asserts the payload
-contains no `diff --git` line.
+contains no `diff --git` line. What is handed over is the text view, so the brief a
+provider sees is the defused one: where a diff's own string literal carries a run
+of backticks, the request carries that run with a backslash in front of it, one
+character deeper than the file said, because `cli.py` sends what `render_text`
+assembled and that body is what a fenced block is built from. The exact name is one
+`--format json` away, and a test pins the marked form on the payload.
 
 The brief is not neutral text either. Every name, path and signature in it was
 written by whoever authored the diff, so a `Literal[...]` annotation in someone's
@@ -435,22 +440,40 @@ The brief lands in the job summary as a fenced block and in a `brief` output for
 a caller to post as a comment.
 
 That fence, and the one `.github/workflows/pr-summary.yml` puts around the same
-text in a pull-request comment, is why `render_text` defuses runs of backticks.
-The vector is the parser's own deliberate rule about carriage returns: `diff.py`
-keeps a `\r` as part of a line rather than as a line ending, so a patch whose
-header lines end CRLF renders a path with the CR still attached, and CommonMark
-counts a lone CR as a line ending. A file named with three backticks therefore
-puts a bare fence on a line of the brief, which closes the opening fence early and
-leaves the rest of the brief rendering as markdown in a comment authored by the
-bot. Reading GitHub's own renderer out of the CommonMark rule is a reading: no
-comment body was rendered here, and the check below is against the rule, encoded
-in a script. `git diff` writes its headers with LF, so the shape arrives as a
-fetched or hand-built patch: the same diff text from stdin or a path that the tool
-documents it accepts. The escape covers any run, not only runs of three, and it is
-applied to the whole rendered body, so a backtick run from an annotation reaches
-the fence defused too. It is applied to the text view only: `json.dumps` escapes a
-carriage return, so the machine view cannot contain a fence line, and a consumer of
-it needs the real file name.
+text in a pull-request comment, is what `brief.fenced()` exists for. Both steps
+write their block through it, so whatever a block wraps has its runs of backticks
+defused on the way in. The guard sits at the block rather than upstream of it
+because a fence does not only wrap the brief: what `action.yml` captures is the
+CLI's stdout, which is the structural brief plus, when a model was configured and
+answered, that model's prose. A response containing a line of three backticks
+would otherwise close the step's own fence and have everything below it render as
+markdown in a comment the bot authored.
+
+The `brief` output is unchanged by all of that: it is the CLI's stdout byte for
+byte, and the defusal is not baked into it. A caller that wraps those bytes in a
+block is whoever writes that fence, and the block comes from the same helper.
+
+The vector for the brief half of those bytes is the parser's own deliberate rule
+about carriage returns: `diff.py` keeps a `\r` as part of a line rather than as a
+line ending, so a patch whose header lines end CRLF renders a path with the CR
+still attached, and CommonMark counts a lone CR as a line ending. A file named with
+three backticks therefore puts a bare fence on a line of the brief. Reading GitHub's
+own renderer out of the CommonMark rule is a reading: no comment body was rendered
+here, and the checks below are against the rule, encoded in a script. `git diff`
+writes its headers with LF, so the shape arrives as a fetched or hand-built patch:
+the same diff text from stdin or a path that the tool documents it accepts.
+
+Inside a fenced block CommonMark parses no inline code, no escapes and no
+entities, so the only thing that can close the fence is a run of three or more
+alone on a line. The defuse covers any run, not only runs of three, because the
+same text is not only ever published inside a fence: on a terminal, and wherever a
+reader pastes the brief as markdown, a run of one or two opens an inline code span
+and is live. `render_text` applies the rule to the whole body it assembles, so a
+backtick run from an annotation is marked before it reaches a block, and the
+block's own pass skips a run that already carries a backslash instead of stacking
+a second one onto it. The escape is applied to the text view only: `json.dumps`
+escapes a carriage return, so the machine view cannot contain a fence line, and a
+consumer of it needs the real file name.
 
 The comment step no longer hands the body to `gh` through argv either; it writes
 the fenced text under `RUNNER_TEMP` and passes `--body-file`. A command line is
@@ -639,9 +662,10 @@ environment.
   spec's input contract requires.
 - Python only. YAML, Markdown, shell and JSON get line counts and a marker.
 - Every run of backticks in the text view is preceded by a backslash, and the
-  json view carries the path unchanged. That is the fence-safety rule in
-  `render_text`, and it applies on a terminal too: a path whose name is three
-  backticks prints with a backslash in front of them. Altered, never hidden, and
+  json view carries the path unchanged. The defusal a published block depends on
+  is `brief.fenced()`, at the fence; `render_text` applies the same rule to what it
+  assembles, so it holds on a terminal too: a path whose name is three backticks
+  prints with a backslash in front of them. Altered, never hidden, and
   `--format json` is the view to read when the exact name matters.
 - `--format json`'s `hunks[].inside` is `[]` for both a genuinely top-level
   hunk and one whose file was withheld. Read the file's `parsed` and `untrusted`

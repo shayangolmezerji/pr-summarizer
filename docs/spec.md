@@ -67,12 +67,17 @@ Before any model: a `Brief`, one entry per changed file, each with
 Two renderings of the same structure: `--format text` (default, human) and
 `--format json` (the Action). Byte-for-byte deterministic for a given input.
 
-The text rendering defuses every run of backticks with a preceding backslash,
-because the Action and the example workflow wrap it in a fenced block and the
-strings in it are the diff author's: a path, or a literal inside an annotation,
-must not be able to close that fence and have the rest of the brief rendered as
-markdown. The json view carries paths as parsed, since `json.dumps` escapes the
-carriage return that makes a hostile path a line of its own and a consumer needs
+Whatever is published inside a fenced block goes through `brief.fenced()`, which
+defuses every run of backticks with a preceding backslash and returns the block.
+The Action's job summary and the example workflow's comment are its two callers,
+and the guard lives there because a block does not only wrap the text rendering:
+the CLI's stdout is the brief plus, when a model answered, prose this tool never
+parsed. A run of backticks anywhere in those bytes would otherwise close the
+enclosing fence and have the rest rendered as markdown in a comment the bot
+authored. `render_text` applies the same defusal to what it assembles, so the text
+view carries no live run on a terminal either, and a run an earlier pass marked is
+not marked twice. The json view carries paths as parsed, since `json.dumps` escapes
+the carriage return that makes a hostile path a line of its own and a consumer needs
 the real name.
 
 Non-Python files get hunk-level line counts and an explicit

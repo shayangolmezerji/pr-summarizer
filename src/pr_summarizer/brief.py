@@ -6,13 +6,15 @@ renamed, which public signatures moved and how many times this diff calls them.
 text and json are two views of this one object, so a terminal reader and a JSON
 consumer can never be shown different changes.
 
-The one asymmetry between them is deliberate. `render_text` defuses runs of
-backticks, because its output is what the Action and the example workflow wrap in
-a fenced block, and a backtick run that came out of the diff could close that
-fence early and leave the rest of the brief rendering as markdown in a comment
-authored by the bot. `render_json` carries the path it was given: `json.dumps`
-turns a carriage return into `\\r`, so no line of it can be a fence, and a machine
-consumer needs the real file name.
+The asymmetry between the two views is deliberate. `render_json` carries the path
+it was given: `json.dumps` turns a carriage return into `\\r`, so no line of it
+can be a fence, and a machine consumer needs the real file name. `render_text`
+defuses every run of backticks as it emits them, and `fenced` defuses whatever it
+is handed and wraps it in the block. The guard sits at the block rather than
+upstream of it because a fence does not only wrap `render_text`: the CLI's stdout
+is the structural brief plus, when a model answered, prose this tool never parsed,
+and a run of backticks anywhere in those bytes closes the fence early and leaves
+the rest of the text rendering as markdown in a comment the bot authored.
 """
 
 from __future__ import annotations
@@ -24,21 +26,47 @@ from dataclasses import dataclass, field
 from . import ast_stage, diff
 from .ast_stage import FileAnalysis, Symbol
 
-# A run of backticks, however long: three of them are a fence and one or two are
-# an inline-code span, and both kinds are the diff author's punctuation.
-_BACKTICK_RUN = re.compile(r"`+")
+# A run of backticks, however long. Inside a fenced block CommonMark parses no
+# inline code, no escapes and no entities, so only a run of three or more alone on
+# a line can close that fence; one and two are escaped anyway because the same
+# text is not only ever published inside a fence. On a terminal and wherever a
+# reader pastes it as markdown, a run of one or two opens an inline code span and
+# is live, and there the backslash is the escape that marks it inert. The
+# lookbehind is what lets `fenced` run this over text `render_text` already
+# defused: a run marked by a backslash, or the tail of one, is skipped whole
+# instead of picking up a second backslash in the middle.
+_BACKTICK_RUN = re.compile(r"(?<![\\`])`+")
 
 
 def _defuse_backtick_runs(text: str) -> str:
     """Prefix every run of backticks with a backslash, once, over the whole body.
 
     Applied to the assembled text rather than to the path field alone so that
-    nothing else the diff authored, an annotation's string literal or a
-    decorator expression either, gets a live run into the fence. Inside a fenced
-    block markdown does not un-escape, so a hostile path reads as a backslash and
-    its backticks there: inert, and visibly altered rather than silently dropped.
+    nothing else the diff authored, an annotation's string literal or a decorator
+    expression either, gets a live run into the fence. Two callers need that, on
+    purpose: `render_text`, so the text view and the brief handed to a model carry
+    no live run, and `fenced`, over bytes `render_text` never produced. Inside a
+    fenced block markdown does not un-escape, so a hostile path reads as a
+    backslash and its backticks there: inert, and visibly altered rather than
+    silently dropped.
     """
     return _BACKTICK_RUN.sub(r"\\\g<0>", text)
+
+
+def fenced(text: str) -> str:
+    """`text` as one fenced markdown block. This is the publication boundary.
+
+    Whoever publishes this text inside a fence writes it through here, which is
+    the Action's job summary and the example workflow's pull-request comment. The
+    block is what gets defused, not the brief: the bytes wrapped are the CLI's
+    whole stdout, and the model prose joined to it is text this module never
+    rendered and could not have defused on the way out.
+
+    Nothing is dropped and nothing is rewritten but the runs; a body that ends
+    without a newline still gets a closer on a line of its own, which is what a
+    `cat` plus a `printf` in shell has to get right by hand.
+    """
+    return "```text\n" + _defuse_backtick_runs(text.rstrip("\n")) + "\n```\n"
 
 
 @dataclass

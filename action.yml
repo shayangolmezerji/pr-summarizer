@@ -80,11 +80,12 @@ runs:
         # step must still publish, so the status is carried and re-raised last.
         rc=0
         pr-summarizer "${flags[@]}" > "$RUNNER_TEMP/pr-brief.txt" || rc=$?
-        {
-          printf '```text\n'
-          cat "$RUNNER_TEMP/pr-brief.txt"
-          printf '```\n'
-        } >> "$GITHUB_STEP_SUMMARY"
+        # The fence is written by the package's own helper, because what it wraps
+        # is the CLI's whole stdout: the brief plus, when a model answered, prose
+        # the renderer never saw. setup-python above put `python` on PATH for the
+        # rest of this action's steps.
+        python -c 'import sys; from pr_summarizer.brief import fenced; sys.stdout.write(fenced(sys.stdin.read()))' \
+          < "$RUNNER_TEMP/pr-brief.txt" >> "$GITHUB_STEP_SUMMARY"
         {
           echo 'brief<<PRSUMMARIZER_BRIEF_EOF'
           cat "$RUNNER_TEMP/pr-brief.txt"
