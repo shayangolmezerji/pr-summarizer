@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pr-summarizer"
+version = "0.1.0"
+description = "Structural PR-diff summaries from the stdlib ast, optionally rendered by a model"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Shayan Golmezerji", email = "121007462+shayangolmezerji@users.noreply.github.com" },
+]
+# Zero runtime dependencies on purpose: the tool has to install into a
+# restricted CI runner and someone's hotfix loop without pulling a tree.
+# Consequences are in docs/adr/0001-ast-before-model.md.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+pr-summarizer = "pr_summarizer.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pr_summarizer"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "W",   # pycodestyle whitespace
+    "F",   # pyflakes
+    "B",   # bugbear
+    "UP",  # pyupgrade
+    "I",   # isort
+    "N",   # naming
+    "SIM", # simplify
+    "C4",  # comprehensions
+    "PT",  # pytest style
+    "RET", # early returns
+    "T20", # no print, except in the CLI where the brief is the output
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The CLI printing the brief and the model's reply is the product; T20 applies
+# to the library, which must stay silent and return data.
+"src/pr_summarizer/cli.py" = ["T201", "T203"]
+"tests/*" = ["PT006", "PT007"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["pr_summarizer"]
