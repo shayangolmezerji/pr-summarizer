@@ -71,11 +71,29 @@ class Symbol:
         if self.kind == CLASS:
             dec = "".join(f"@{d} " for d in self.decorators)
             return f"{dec}class {self.name}"
-        ps = ", ".join(p.render() for p in self.params)
-        ret = f" -> {self.returns}" if self.returns else ""
-        dec = "".join(f"@{d} " for d in self.decorators)
         kw = "async def" if self.kind == ASYNC_FUNCTION else "def"
-        return f"{dec}{kw} {self.name}({ps}){ret}"
+        head = f"{self.decorators_prefix()}{kw} {self.name}"
+        return f"{head}({self.params_text()}){self.returns_text()}"
+
+    def decorators_prefix(self) -> str:
+        return "".join(f"@{d} " for d in self.decorators)
+
+    def returns_text(self) -> str:
+        return f" -> {self.returns}" if self.returns else ""
+
+    def params_text(self) -> str:
+        # Rebuild the separators Python uses: a bare "*" marks the start of the
+        # keyword-only section, and "/" the end of positional-only, so the
+        # rendered signature is valid and round-trips against the source.
+        parts: list[str] = []
+        seen_kw_marker = False
+        for p in self.params:
+            if p.kind == "keyword-only" and not seen_kw_marker:
+                if not any(q.kind == "vararg" for q in self.params):
+                    parts.append("*")
+                seen_kw_marker = True
+            parts.append(p.render())
+        return ", ".join(parts)
 
     def _shape(self) -> tuple:
         return (self.params, self.returns, self.kind)
@@ -198,10 +216,17 @@ def detect_renames(removed: list[Symbol], added: list[Symbol]) -> list[tuple[Sym
 
 
 def count_call_sites(change: FileChange, name: str) -> int:
-    """References to ``name(`` on the new side of a file's changed regions."""
+    """References to ``name(`` on the new side of a file's changed regions.
+
+    A definition line is skipped: ``def append(`` is the symbol being counted,
+    not a use of it. ``x.append(`` is excluded by the lookbehind.
+    """
     pattern = re.compile(rf"(?<![\w.]){re.escape(name)}\s*\(")
     hits = 0
     for _, text in change.new_lines():
+        stripped = text.lstrip()
+        if stripped.startswith(("def ", "async def ", "class ")):
+            continue
         hits += len(pattern.findall(text.split("#", 1)[0]))
     return hits
 
