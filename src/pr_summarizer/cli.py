@@ -87,6 +87,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parsed = brief_mod.build(diff_text)
 
     summary: str | None = None
+    model_exit = EXIT_OK
     if not args.no_model:
         try:
             summary = model.summarize(
@@ -96,8 +97,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         except model.NotConfiguredError as exc:
             print(f"model skipped ({exc}); showing the structural brief alone", file=sys.stderr)
         except model.ModelError as exc:
+            # The brief is the product; a model failure must not hide it. The
+            # exit code carries the failure, the render below still happens.
             print(f"model error: {exc}", file=sys.stderr)
-            return EXIT_MODEL
+            model_exit = EXIT_MODEL
 
     if args.format == "json":
         sys.stdout.write(brief_mod.render_json(parsed, summary=summary))
@@ -106,7 +109,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if summary:
             print("\nmodel summary\n" + "-" * 40)
             print(summary)
-    return EXIT_OK
+    return model_exit
 
 
 if __name__ == "__main__":  # pragma: no cover

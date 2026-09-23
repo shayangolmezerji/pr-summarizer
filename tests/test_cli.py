@@ -9,6 +9,8 @@ import pytest
 
 from pr_summarizer import cli, model
 
+FAKE_KEY = "sk-fake-not-a-real-key-0123456789"
+
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch):
@@ -71,14 +73,22 @@ def test_model_summary_embedded_in_json(fixtures_dir, capsys, monkeypatch):
     assert data["summary"] == "summary text"
 
 
-def test_model_error_surfaces_exit_code(fixtures_dir, capsys, monkeypatch):
-    def fail(*a, **k):
-        raise model.ModelError("model endpoint not found; check PRSUMMARIZER_BASE_URL", "B")
+def test_model_error_still_prints_brief_but_fails_exit(fixtures_dir, capsys, monkeypatch):
+    # A real 404 out of the transport, not a hand-built exception: the message
+    # naming the suspect variable is produced by model.summarize.
+    monkeypatch.setenv(model.BASE_URL_ENV, "https://api.example.invalid/v1")
+    monkeypatch.setenv(model.MODEL_ENV, "some-model")
+    monkeypatch.setenv(model.KEY_ENV, FAKE_KEY)
+    monkeypatch.setattr(model, "_urllib_transport", lambda url, headers, body: (404, b"{}"))
 
-    monkeypatch.setattr(model, "summarize", fail)
     code = cli.main([_fixture(fixtures_dir, "shape")])
     assert code == cli.EXIT_MODEL
-    assert "PRSUMMARIZER_BASE_URL" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "structural brief:" in captured.out
+    assert "risk" in captured.out
+    assert "PRSUMMARIZER_BASE_URL" in captured.err
+    assert FAKE_KEY not in captured.out
+    assert FAKE_KEY not in captured.err
 
 
 def test_stdin_is_read_when_no_path(monkeypatch, capsys):
