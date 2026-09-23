@@ -629,12 +629,25 @@ $ .venv/bin/python -m pytest -q
 103 passed in 0.87s
 ```
 
-The first two also ran in a clean-room venv built by the block above, in a copy of
-the tree with `.git` and `.venv` removed: `All checks passed!` and `91 passed in
-0.52s`, with pytest 9.1.1 and ruff 0.16.8 resolved fresh, which is what CI's
-`pip install -e ".[dev]"` pulls. That count is from the tree as it stood before
-the request framing and the fence escape, and the clean room has not been rebuilt
-since; the two tests added for those have run only in this checkout.
+The first two also ran in a clean-room venv, built by the two commands under
+[Installation](#installation) in a copy of the tree with `.git`, `.venv`,
+`.coverage` and the caches left out, whose remaining file set is exactly the tracked
+one: `All checks passed!` and `103 passed in 0.48s`, the same count as here, on
+CPython 3.13.5 with pytest 9.1.1 and ruff 0.16.8 resolved fresh. `ruff check .`
+walked the same 17 files in the copy as here, the three scripts under `tools/`
+included, so those are covered by the command CI runs and not by reading its config.
+The copy keeps `tools/stub-bin/gh` executable, which is the mode the index stores and
+what the comment step above needs, and no test opens that file, so a stub that lost
+its exec bit would fail that transcript and leave `pytest` green. `Requires:` is
+empty and the installed console script answers `--help` with exit 0 from outside the
+source tree.
+
+What the checkout cannot show: three of `tests/test_fence_publication.py`'s
+structural tests read `action.yml` and `.github/workflows/` from the repo root, so a
+smaller copy is not a smaller version of this run. With those two paths taken out,
+`ruff check .` still passed and the three failed on `FileNotFoundError` rather than
+skipping. The coverage table below is from this checkout, where `--cov` was run again
+against the current tree; it did not run in the clean room.
 
 ```
 Name                             Stmts   Miss  Cover
