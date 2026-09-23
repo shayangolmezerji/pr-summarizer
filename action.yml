@@ -2,7 +2,7 @@ name: PR Structural Summary
 description: >
   Compute a structural brief of a pull-request diff with the stdlib ast and
   write it to the job summary. Model prose is opt-in: with no endpoint inputs
-  set, the tool is run with --no-model and nothing leaves the runner.
+  set, the tool is run with --no-model and no model request leaves the runner.
 
 # What this action guarantees an operator: the structural brief is computed
 # locally and reaches the job summary even when the optional model call fails,

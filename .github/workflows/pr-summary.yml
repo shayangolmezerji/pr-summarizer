@@ -24,11 +24,13 @@ jobs:
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
-          # Model access is OFF unless all three are set. Leaving them unset
-          # means the job posts the structural brief computed on the runner and
-          # sends no diff, no brief and no source to any third-party endpoint.
-          # Point model-base-url at a provider only once you accept that the
-          # brief (a summary of your source, not the source) is sent to it.
+          # Model access is OFF unless the base URL and the model name are both
+          # set. Leaving them unset means the job posts the structural brief
+          # computed on the runner and sends no diff, no brief and no source to
+          # any third-party endpoint. The key is optional because a local server
+          # wants none. Point model-base-url at a provider only once you accept
+          # that the brief (a summary of your source, not the source) is sent to
+          # it, through that proxy if the runner has one.
           model-base-url: ${{ vars.PRSUMMARIZER_BASE_URL }}
           model-name: ${{ vars.PRSUMMARIZER_MODEL }}
           model-api-key: ${{ secrets.PRSUMMARIZER_API_KEY }}
