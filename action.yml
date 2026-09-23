@@ -3,12 +3,17 @@ description: >
   Compute a structural brief of a pull-request diff with the stdlib ast and
   write it to the job summary. Model prose is opt-in: with no endpoint inputs
   set, the tool is run with --no-model and no model request leaves the runner.
+  When they are set, the brief sent to that endpoint is built out of the diff
+  author's own names, paths and signatures, so their text reaches the model
+  framed as data to summarize rather than as instructions to follow; the
+  framing narrows that surface and does not close it.
 
 # What this action guarantees an operator: the structural brief is computed
 # locally and reaches the job summary even when the optional model call fails,
 # which still reddens the step. The model call only happens when model-base-url
 # AND model-name are provided, so enabling it is a deliberate act that accepts
-# the brief being sent to that endpoint.
+# the brief being sent to that endpoint, and with it the names and signatures
+# this PR's author typed into their code.
 
 inputs:
   base:

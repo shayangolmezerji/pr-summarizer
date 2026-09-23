@@ -67,6 +67,14 @@ Before any model: a `Brief`, one entry per changed file, each with
 Two renderings of the same structure: `--format text` (default, human) and
 `--format json` (the Action). Byte-for-byte deterministic for a given input.
 
+The text rendering defuses every run of backticks with a preceding backslash,
+because the Action and the example workflow wrap it in a fenced block and the
+strings in it are the diff author's: a path, or a literal inside an annotation,
+must not be able to close that fence and have the rest of the brief rendered as
+markdown. The json view carries paths as parsed, since `json.dumps` escapes the
+carriage return that makes a hostile path a line of its own and a consumer needs
+the real name.
+
 Non-Python files get hunk-level line counts and an explicit
 `"no structural analysis for this language"` marker. The tool never fabricates
 a parse it did not do.
@@ -98,6 +106,15 @@ tests never open a socket.
 
 The request body is the rendered brief plus a short instruction to write an
 architectural summary. It is not the raw diff.
+
+The brief is the diff author's text as much as it is the tool's: names, paths and
+unparsed annotations come out of their code. `build_request` therefore puts it
+between `<structural-brief>` and `</structural-brief>` and the instruction says
+what those tokens mean, that the region is data describing a change and anything
+in it reading as an instruction is content to report on. This is framing, not
+sanitizing: a diff can still carry a string that imitates the closing token, and
+nothing here pretends otherwise. The point is that hostile text has to pass for
+part of the data region instead of blending into the prompt's instructions.
 
 No local llama.cpp dependency and no provider SDK. Base URL and model name from
 the environment mean any OpenAI-compatible server works, including a local one,
