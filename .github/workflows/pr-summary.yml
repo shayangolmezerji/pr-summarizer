@@ -1,10 +1,12 @@
 name: PR summary
 
 # Reads a pull-request diff, builds a structural brief with the stdlib ast, and
-# posts it as a comment. GitHub ran this file once, on a Dependabot pull
-# request, and stopped at the first step: `uses: ./` cannot locate an action
-# that is not on disk yet. The checkout below is what that run showed was
-# missing, and nothing in this file has been executed by GitHub since.
+# posts it as a comment. The first time GitHub ran this file, on a Dependabot
+# pull request, it stopped at the first step: `uses: ./` cannot locate an action
+# that is not on disk yet (run 35934850926). The checkout below is what that run
+# showed was missing. Run 36257122799, on 2026-09-26 and over that same pull
+# request, came back green on every step in this file, and its `gh` posted the
+# brief to pull request #1.
 
 on:
   pull_request:

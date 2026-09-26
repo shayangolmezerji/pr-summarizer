@@ -11,9 +11,10 @@ seven-fixture corpus. Read and argued, never executed: everything about what a
 language model does with a brief rather than a raw diff. No provider was
 contacted from here and no endpoint answered one, so nobody watched a model do
 either job. `action.yml` and the two workflows in `.github/workflows/` have
-since been run by GitHub: `ci.yml` has passed every run it has had, and
-`pr-summary.yml` failed its first at `uses: ./` for want of a checkout, then
-passed its second once `9d6a0da` added one, every step of the action included.
+since been run by GitHub: `ci.yml` was green on each of the four runs it had
+through 2026-09-26, and `pr-summary.yml` failed its first, run 35934850926, at
+`uses: ./` for want of a checkout, then passed run 36257122799 once `9d6a0da`
+added one, every step of the action included.
 What was run here, before any of that, is the action's shell body extracted
 from the YAML and executed against scratch files.
 
