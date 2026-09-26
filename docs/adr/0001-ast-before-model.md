@@ -11,8 +11,11 @@ seven-fixture corpus. Read and argued, never executed: everything about what a
 language model does with a brief rather than a raw diff. No provider was
 contacted from here and no endpoint answered one, so nobody watched a model do
 either job. `action.yml` and the two workflows in `.github/workflows/` have
-never been run by GitHub either; what was run here is the action's shell body
-extracted from the YAML and executed against scratch files.
+since been run by GitHub: `ci.yml` has passed every run it has had, and
+`pr-summary.yml` failed its first at `uses: ./` for want of a checkout, then
+passed its second once `9d6a0da` added one, every step of the action included.
+What was run here, before any of that, is the action's shell body extracted
+from the YAML and executed against scratch files.
 
 ## Context
 
