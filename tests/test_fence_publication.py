@@ -174,4 +174,4 @@ def test_every_action_this_repo_points_at_is_pinned_to_a_commit():
                 continue
             assert _TAG_REF.fullmatch(ref), f"{rel}: {line}"
             assert _RELEASE_NOTE.fullmatch(rest), f"{rel}: {line}"
-    assert checked == 5
+    assert checked == 6

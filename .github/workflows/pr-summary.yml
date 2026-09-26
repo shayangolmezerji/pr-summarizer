@@ -1,8 +1,10 @@
 name: PR summary
 
 # Reads a pull-request diff, builds a structural brief with the stdlib ast, and
-# posts it as a comment. This workflow has never run: it is defined here as the
-# documented way to use the action, not as an executed result.
+# posts it as a comment. GitHub ran this file once, on a Dependabot pull
+# request, and stopped at the first step: `uses: ./` cannot locate an action
+# that is not on disk yet. The checkout below is what that run showed was
+# missing, and nothing in this file has been executed by GitHub since.
 
 on:
   pull_request:
@@ -15,11 +17,25 @@ jobs:
   structural-summary:
     runs-on: ubuntu-latest
     steps:
+      # The runner reads action.yml off the workspace before any of the action's
+      # steps can run, so the action's own checkout cannot be what puts it there:
+      # only a step before `uses: ./` can be, and the failed run had none.
+      # fetch-depth: 0 because the base sha passed below is not in the single
+      # commit a default checkout brings down, and a caller cannot count on a
+      # later fetch to deepen a shallow clone. Pinned to the same commit ci.yml
+      # and action.yml use: a moving major tag is upstream's to repoint, and
+      # Dependabot opens the PRs that move these.
+      - name: Check out this repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
       - name: Structural brief
         id: brief
-        # The composite action checks the repository out itself (fetch-depth 0,
-        # so both ends of the diff range exist) and installs the package before
-        # running it. No separate checkout step is needed here.
+        # The action re-checks out with fetch-depth: 0 (see action.yml). In this
+        # job that is a re-fetch of a tree already deep enough; it stays there for
+        # callers who do not put the depth in themselves, which is what keeps the
+        # action usable outside this workflow.
         uses: ./
         with:
           base: ${{ github.event.pull_request.base.sha }}

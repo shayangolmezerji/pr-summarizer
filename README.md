@@ -6,8 +6,9 @@ library's `ast`.
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 
-No CI badge: the workflow in `.github/workflows/` has never been run by GitHub,
-and a badge pointing at a job that has never executed is a claim, not a result.
+No CI badge: `ci.yml` has run and passed on GitHub, and the workflow that drives
+this repo's own action failed its first run, so a badge on the test job alone
+would be a claim about both.
 [Limitations](#limitations) lists what has and has not been executed here.
 
 ## Table of Contents
@@ -509,19 +510,36 @@ not do. With no endpoint inputs set, the only thing the step sends anywhere is
 the job summary the runner was always going to upload to GitHub.
 
 ```yaml
+- uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+  with:
+    fetch-depth: 0
 - uses: ./
   with:
     base: ${{ github.event.pull_request.base.sha }}
     head: ${{ github.event.pull_request.head.sha }}
 ```
 
-`.github/workflows/pr-summary.yml` is that job plus a comment step, and is the
-documented way to use the action.
+That first line is not decoration. A runner locates a local action in the
+workspace before any of its steps run, so `uses: ./` cannot resolve until
+`action.yml` is already on disk, and the checkout inside the action happens
+after it was found and started. The `fetch-depth: 0` is not decoration either:
+the action is handed the PR's base sha, and a default checkout brings down one
+commit. Deepening a shallow clone afterwards was tried here and does not
+happen, a depth-less `git fetch` on git 2.47.3 left the repository at one
+commit and still shallow, so the history has to be complete at the first
+clone. That is the caller's checkout, not the action's.
 
-GitHub has never run the action or either workflow. What was executed here is the
-`brief` step's shell body, read out of `action.yml` with `tools/step_body.py` and
-run in bash with `RUNNER_TEMP`, `GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` pointed
-at scratch files, over the range `c7b6def..d68dd2f`: the second row of the table in
+`.github/workflows/pr-summary.yml` is those two steps plus a comment step, and is
+the documented way to use the action.
+
+GitHub has never run a step of the action. The one attempt, a run of
+`pr-summary.yml` on a Dependabot pull request, stopped at the first step with
+`Can't find 'action.yml', 'action.yaml' or 'Dockerfile'`: that workflow had no
+checkout, which is what the two lines at the top of the snippet above now
+supplies. What was executed here is the `brief` step's shell body, read out of
+`action.yml` with `tools/step_body.py` and run in bash with `RUNNER_TEMP`,
+`GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` pointed at scratch files, over the
+range `c7b6def..d68dd2f`: the second row of the table in
 [ADR 0001](docs/adr/0001-ast-before-model.md), 45,919 diff bytes whose brief is
 10,594. Both rows were produced again after the backtick escape went in, with the
 same three counts, and that pairing is a no-change regression check rather than
@@ -559,7 +577,7 @@ The comment step ran here too. Its `run:` body came out of the workflow with
 be a bare fence, and the only thing stood in was `gh` itself: `tools/stub-bin/gh`,
 a script on `PATH` that echoes the arguments it was handed, because `gh` is
 off-limits in this environment (see
-[Limitations](#never-executed-and-what-each-one-would-prove)). It copies whatever
+[Limitations](#not-executed-here-and-what-each-one-would-prove)). It copies whatever
 `--body-file` names to `GH_STUB_COPY`, outside `RUNNER_TEMP`, so the body that was
 handed over can be counted after the step's own `trap` has deleted the original.
 `BRIEF` is the render of `tools/hostile_patch.py`'s patch, whose one file is named
@@ -716,13 +734,13 @@ frame went in. Every failure path a machine can produce without a provider: a
 refused port, an unresolvable host, a schemeless base URL, and a proxy in the
 environment.
 
-### Never executed, and what each one would prove
+### Not executed here, and what each one would prove
 
 | Thing | What is unproven |
 |---|---|
-| `action.yml` | GitHub has never run it. Only the step's shell body ran here, in bash, with the runner variables pointed at scratch files. Its `pip install "$GITHUB_ACTION_PATH"` was reproduced in the same non-editable form against `/tmp/ps-neutral-2`, the copy the Installation transcripts ran from; `fetch-depth: 0`, the `inputs.*` context expressions and the resolution of `uses: ./` have never been interpreted by anything. |
-| `.github/workflows/ci.yml` | Never run. `actionlint` is not installed here and cannot be. Its three `run:` lines were each executed by hand, in the clean-room venv for the install one, and the YAML parses. |
-| `.github/workflows/pr-summary.yml` | Never run by GitHub. Its comment step's `run:` body did run here, in bash, but the `gh` it reached was a script on `PATH` that echoes its arguments: `gh` is deliberately off-limits in this environment, so no comment was ever sent and `--body-file` was never read by anything that would post it. Nothing about the step's `env:` interpolation or the runner's `RUNNER_TEMP` lifetime has been interpreted by GitHub. |
+| `action.yml` | GitHub has never run a step of it. Only the step's shell body ran here, in bash, with the runner variables pointed at scratch files. Its `pip install "$GITHUB_ACTION_PATH"` was reproduced in the same non-editable form against `/tmp/ps-neutral-2`, the copy the Installation transcripts ran from; `fetch-depth: 0` and the `inputs.*` context expressions have never been interpreted by anything. The resolution of `uses: ./` was interpreted once, by a runner that answered `Can't find 'action.yml'` and started nothing, which is the fact the caller's own checkout step now rests on. |
+| `.github/workflows/ci.yml` | Ran on GitHub and passed after `main` was pushed; that is the test job only, and it covers neither of the other two files. `actionlint` is not installed here and cannot be. Its three `run:` lines were each executed by hand, in the clean-room venv for the install one, and the YAML parses. |
+| `.github/workflows/pr-summary.yml` | Ran on GitHub once, on a Dependabot pull request, and failed at the first step for want of a checkout, so `uses: ./` had nothing to resolve. The step that was added for that has not run there, nor has any step after it. Its comment step's `run:` body did run here, in bash, but the `gh` it reached was a script on `PATH` that echoes its arguments: `gh` is deliberately off-limits in this environment, so no comment was ever sent and `--body-file` was never read by anything that would post it. Nothing about the step's `env:` interpolation or the runner's `RUNNER_TEMP` lifetime has been interpreted by GitHub. |
 | A live model provider | No provider was contacted, so a real one's error bodies, rate limits and any status the tool does not name are exercised against fake transports only. It also means the request framing is unproven where it matters: the suite asserts that the delimited region carries the diff's words and that the instruction region does not, which is a claim about bytes this tool builds, not about how a server reads them. Nobody has shown a framed brief to a model from here. The two returns inside `_urllib_transport` are coverage misses (`model.py` 124 and 126) because the suite replaces that transport; both did run here, against a loopback stub that is deliberately not in the tree, so reproducing that evidence means writing the stub again. The other three misses are ordinary gaps in the test inputs: 172 wants a status outside the four the tool names, and 186 and 189 want a budget that is not positive or a brief that already fits it. |
 | Python 3.12 | `requires-python = ">=3.12"` and the CI matrix both claim it. Everything here ran on 3.13.5. Nothing in the code uses a 3.13-only construct, and that is a reading of the source, not a run. |
 | A pull request from a fork | `pr-summary.yml` passes `pull_request.head.sha` to `git diff`. On a forked PR that object may not exist in the checked-out history even at `fetch-depth: 0`, so the step would fail in `git diff` with exit 2. Not tested; needs a second repository. |
