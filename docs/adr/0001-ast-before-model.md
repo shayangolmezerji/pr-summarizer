@@ -6,8 +6,8 @@ Accepted. 2026-09-23.
 
 Split the claims in this record before believing it. Executed on this machine,
 on Python 3.13.5: the byte counts in the table, the repeat-run check, the
-clean-room install, the two `pip install` closures, and the 91 tests over the
-seven-fixture corpus. Read and argued, never executed: everything about what a
+clean-room install, the two `pip install` closures, and the suite over the
+seven-fixture corpus, which held 91 tests on that date and 103 on 2026-09-26. Read and argued, never executed: everything about what a
 language model does with a brief rather than a raw diff. No provider was
 contacted from here and no endpoint answered one, so nobody watched a model do
 either job. `action.yml` and the two workflows in `.github/workflows/` have
